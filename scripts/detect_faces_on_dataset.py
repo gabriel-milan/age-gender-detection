@@ -8,9 +8,9 @@ from tqdm import tqdm
 # Configuration
 MODE = "cascade"  # "cascade" or "caffe"
 DATASET_PATH = Path('pics/dataset')
-FACE_PROTO = "opencv_face_detector.pbtxt"
-FACE_MODEL = "opencv_face_detector_uint8.pb"
-FACE_CASCADE_MODEL = "cascade_models/haarcascade_frontalface_default.xml"
+FACE_PROTO = "original_models/opencv_face_detector.pbtxt"
+FACE_MODEL = "original_models/opencv_face_detector_uint8.pb"
+FACE_CASCADE_MODEL = "original_models/haarcascade_frontalface_default.xml"
 CONFIDENCE_THRESHOLD = 0.7
 
 # Load face detection model
@@ -52,7 +52,7 @@ for subdir in tqdm(DATASET_PATH.iterdir()):
                 elif MODE == "cascade":
                     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
                     faces = face_detection_model.detectMultiScale(
-                        gray, 1.03, 2)
+                        gray, 1.3, 5)
                     if (len(faces) > 0):
                         n_faces[age]["confidences"].append(1)
 

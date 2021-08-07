@@ -134,7 +134,7 @@ def get_age_scale_values(age_model: str):
                 '(23-35)', '(36-45)', '(46-60)', '(60+)']
 
 
-def highlight_faces(net, frame, face_mode: str, conf_threshold: float = CONFIDENCE_THRESHOLD):
+def highlight_faces(net, frame, face_mode: str, cascade_scale: float, cascade_neighbors: int, conf_threshold: float = CONFIDENCE_THRESHOLD):
     """Detects faces in an image and highlight them"""
     frameOpencvDnn = frame.copy()
     faceBoxes = []
@@ -159,7 +159,7 @@ def highlight_faces(net, frame, face_mode: str, conf_threshold: float = CONFIDEN
     elif face_mode == "cascade":
         gray = cv2.cvtColor(frameOpencvDnn, cv2.COLOR_BGR2GRAY)
         faces = net.detectMultiScale(
-            gray, FACE_CASCADE_SCALE, FACE_CASCADE_NEIGHBORS)
+            gray, cascade_scale, cascade_neighbors)
         for (x, y, w, h) in faces:
             faceBoxes.append([x, y, x+w, y+h])
             cv2.rectangle(frameOpencvDnn, (x, y), (x+w, y+h),
@@ -167,7 +167,7 @@ def highlight_faces(net, frame, face_mode: str, conf_threshold: float = CONFIDEN
     return frameOpencvDnn, faceBoxes
 
 
-def run_detection(image_source, age_model: str, face_mode: str, gender_mode: str):
+def run_detection(image_source, age_model: str, face_mode: str, gender_mode: str, cascade_scale: float, cascade_neighbors: int):
     """Runs detection on image source"""
 
     # Load models
@@ -184,7 +184,8 @@ def run_detection(image_source, age_model: str, face_mode: str, gender_mode: str
             break
 
         # Detect faces
-        resultImg, faceBoxes = highlight_faces(face_net, frame, face_mode)
+        resultImg, faceBoxes = highlight_faces(
+            face_net, frame, face_mode, cascade_scale, cascade_neighbors)
         if not faceBoxes:
             cv2.putText(resultImg, "No face detected",
                         (150, 150), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
@@ -238,15 +239,21 @@ def main(
         None, help="If None, will use video camera. If set, will run detection on the image"),
     image_dir: str = typer.Option(
         None, help="Directory with images only. If set, will run detection on all of them."),
+    cascade_scale: float = typer.Option(
+        FACE_CASCADE_SCALE, help="Scale for Haar cascade"),
+    cascade_neighbors: int = typer.Option(
+        FACE_CASCADE_NEIGHBORS, help="Number of neighbors for Haar cascade"),
 ):
     if image_dir is not None:
         image_files = Path(image_dir).glob("**/*")
         for image in image_files:
             run_detection(cv2.VideoCapture(str(image)),
-                          age_model, face_mode, gender_mode)
+                          age_model, face_mode, gender_mode,
+                          cascade_scale, cascade_neighbors)
     else:
         video = cv2.VideoCapture(image if image else 0)
-        run_detection(video, age_model, face_mode, gender_mode)
+        run_detection(video, age_model, face_mode, gender_mode,
+                      cascade_scale, cascade_neighbors)
 
 
 if __name__ == "__main__":
