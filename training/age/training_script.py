@@ -110,4 +110,4 @@ validation_score = np.average(validation_scores)
 
 # Save run
 save_run({{run_config}}, model, training_score,
-         validation_score, ["gender", "age-gender-detection"])
+         validation_score, ["age", "age-gender-detection"])
