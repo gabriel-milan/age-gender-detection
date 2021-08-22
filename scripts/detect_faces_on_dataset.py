@@ -6,8 +6,8 @@ import numpy as np
 from tqdm import tqdm
 
 # Configuration
-MODE = "cascade"  # "cascade" or "caffe"
-DATASET_PATH = Path('pics/dataset')
+MODE = "caffe"  # "cascade" or "caffe"
+DATASET_PATH = Path('pics/adience/faces')
 FACE_PROTO = "original_models/opencv_face_detector.pbtxt"
 FACE_MODEL = "original_models/opencv_face_detector_uint8.pb"
 FACE_CASCADE_MODEL = "original_models/haarcascade_frontalface_default.xml"
@@ -23,16 +23,16 @@ elif MODE == "cascade":
 # Iterate over subdirectories of dataset, split with subdirectory name
 print("Detecting faces...")
 n_faces = {}
-for subdir in tqdm(DATASET_PATH.iterdir()):
+for subdir in tqdm(list(DATASET_PATH.iterdir())):
     if subdir.is_dir():
-        age = int(subdir.name)
+        age = subdir.name
         if age not in n_faces:
             n_faces[age] = {
                 "faces": 0,
                 "confidences": []
             }
         for image_path in subdir.iterdir():
-            if image_path.is_file():
+            if image_path.is_file() and image_path.suffix == ".jpg":
                 n_faces[age]["faces"] += 1
                 # Read image
                 image: np.ndarray = cv2.imread(str(image_path))
