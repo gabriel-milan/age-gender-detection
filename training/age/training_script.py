@@ -10,9 +10,11 @@ from sklearn.model_selection import StratifiedKFold
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 
 # Constants
-DATA_DIR = Path("/home/gabriel-milan/data/gender")
-RANDOM_SEED = {{random_seed}}
+DATA_DIR = Path("/home/gabriel-milan/data/age")
+X_PATH = DATA_DIR / "X_age.npy"
+Y_PATH = DATA_DIR / "y_age.npy"
 N_FOLDS = {{n_folds}}
+RANDOM_SEED = {{random_seed}}
 MAX_EPOCHS = {{max_epochs}}
 LOSS = {{loss}}
 OPTIMIZER = {{optimizer}}
@@ -33,10 +35,9 @@ def get_model(model_config=None) -> Model:
     return model
 
 
-# Read dataframe with filenames and labels
-data_df = pd.read_csv(str(DATA_DIR / "gender_dataset.csv"))
-y = data_df["gender"]
-data_df["gender"] = data_df["gender"].astype(str)
+# Read X and y
+X = np.load(X_PATH)
+y = np.load(Y_PATH)
 
 # Setup stratified k-fold
 skf = StratifiedKFold(n_splits=N_FOLDS, random_state=RANDOM_SEED, shuffle=True)
@@ -55,24 +56,10 @@ for train_index, val_index in skf.split(np.zeros(len(y)), y):
     K.clear_session()
 
     # Get train and validation data
-    training_data = data_df.iloc[train_index]
-    validation_data = data_df.iloc[val_index]
-
-    # Set generatorss
-    train_data_generator = idg.flow_from_dataframe(
-        dataframe=training_data,
-        x_col="image_name",
-        y_col="gender",
-        class_mode="binary",
-        shuffle=True
-    )
-    validation_data_generator = idg.flow_from_dataframe(
-        dataframe=validation_data,
-        x_col="image_name",
-        y_col="gender",
-        class_mode="binary",
-        shuffle=True
-    )
+    X_train = X[train_index]
+    y_train = y[train_index]
+    X_val = X[val_index]
+    y_val = y[val_index]
 
     # Get model and compile
     model = get_model()
@@ -106,10 +93,10 @@ for train_index, val_index in skf.split(np.zeros(len(y)), y):
 
     # Train model
     history = model.fit(
-        train_data_generator,
+        X_train, y_train,
         epochs=MAX_EPOCHS,
         callbacks=callbacks,
-        validation_data=validation_data_generator,
+        validation_data=(X_val, y_val),
         verbose=VERBOSE
     )
 

@@ -3,7 +3,7 @@
     "random_seed": 8080,
     "n_folds": 10,
     "max_epochs": 5000,
-    "loss": "binary_crossentropy",
+    "loss": "categorical_crossentropy",
     "optimizer": "adam",
     "verbose": 1,
     "es_patience": 25,
