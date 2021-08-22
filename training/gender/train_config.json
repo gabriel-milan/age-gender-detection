@@ -1,0 +1,12 @@
+{
+  "params": {
+    "random_seed": 8080,
+    "max_epochs": 5000,
+    "loss": "binary_crossentropy",
+    "optimizer": "adam",
+    "verbose": 1,
+    "es_patience": 25,
+    "lr_patience": 5,
+    "lr_factor": 0.1
+  }
+}
