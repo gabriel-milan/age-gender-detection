@@ -1,53 +1,28 @@
-import os
+import pandas as pd
+from pathlib import Path
 
-import cv2
-import numpy as np
-from tqdm import tqdm
+DATASET_PATH = "pics/gender_dataset/"
+MALE_PATH = Path(DATASET_PATH) / "male"
+FEMALE_PATH = Path(DATASET_PATH) / "female"
 
-DATASET_PATH = 'pics/gender_dataset/'
+# Generate dataset, collecting filenames for each gender
+# and storing them with gender as target
+df = pd.DataFrame(columns=["image_name", "gender"])
+i = 0
+for file in MALE_PATH.iterdir():
+    if file.is_file():
+        df.loc[i] = [str(file), "male"]
+        i += 1
 
+for file in FEMALE_PATH.iterdir():
+    if file.is_file():
+        df.loc[i] = [str(file), "female"]
+        i += 1
 
-def parse_gender(gender):
-    if gender == "male":
-        return [0, 1]
-    elif gender == "female":
-        return [1, 0]
-    else:
-        raise ValueError(f"Gender {gender} is unknown")
+# Convert gender to binary classification
+df["gender"] = (df["gender"] == "male").astype(int)
+df["image_name"] = df["image_name"].apply(
+    lambda x: "/home/gabriel-milan/data/gender/" + x.split(DATASET_PATH)[-1])
 
-
-# Initialize X and y
-X = []
-y = []
-
-# Iterate over directories in DATASET_PATH
-for dir_name in tqdm(list(os.listdir(DATASET_PATH))):
-    dir_path = os.path.join(DATASET_PATH, dir_name)
-    if not os.path.isdir(dir_path):
-        continue
-    gender = dir_name
-
-    # Iterate over files in dir_path
-    for file_name in os.listdir(dir_path):
-        file_path = os.path.join(dir_path, file_name)
-        if not os.path.isfile(file_path):
-            continue
-
-        # Read image
-        image = cv2.imread(file_path)
-        blob = cv2.dnn.blobFromImage(image, 1.0, (227, 227), swapRB=False)
-
-        # Append image and gender to X and y
-        X.append(blob)
-        y.append(parse_gender(gender))
-
-# Convert X and y to numpy arrays
-X = np.vstack(X).astype(np.float64)
-y = np.array(y).astype(np.float64)
-
-# Normalize X
-X = X / 255.0
-
-# Save X and y to disk
-np.save('X_gender.npy', X)
-np.save('y_gender.npy', y)
+# Save dataframe
+df.to_csv("gender_dataset.csv", index=False)
