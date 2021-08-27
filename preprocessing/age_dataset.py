@@ -1,3 +1,5 @@
+from pathlib import Path
+import pandas as pd
 import os
 
 import cv2
@@ -44,16 +46,17 @@ def parse_age(age):
     return age_vector
 
 
-# Initialize X and y
-X = []
-y = []
+age_cols = [f"age_{i}" for i in range(len(AGE_RANGES))]
+cols = ["image_name"] + age_cols
+df = pd.DataFrame(columns=cols)
+i = 0
 
 # Iterate over directories in DATASET_PATH
 for dir_name in tqdm(list(os.listdir(DATASET_PATH))):
     dir_path = os.path.join(DATASET_PATH, dir_name)
     if not os.path.isdir(dir_path):
         continue
-    age = int(dir_name)
+    age = parse_age(int(dir_name))
 
     # Iterate over files in dir_path
     for file_name in os.listdir(dir_path):
@@ -61,21 +64,12 @@ for dir_name in tqdm(list(os.listdir(DATASET_PATH))):
         if not os.path.isfile(file_path):
             continue
 
-        # Read image
-        image = cv2.imread(file_path)
-        blob = cv2.dnn.blobFromImage(image, 1.0, (227, 227), swapRB=False)
+        # Add to dataframe
+        df.loc[i] = [file_path] + age
+        i += 1
 
-        # Append image and age to X and y
-        X.append(blob)
-        y.append(parse_age(age))
+df["image_name"] = df["image_name"].apply(
+    lambda x: "/home/gabriel-milan/data/age/" + x.split(DATASET_PATH)[-1])
 
-# Convert X and y to numpy arrays
-X = np.vstack(X).astype(np.float64)
-y = np.array(y).astype(np.float64)
-
-# Normalize X
-X = X / 255.0
-
-# Save X and y to disk
-np.save('X_age.npy', X)
-np.save('y_age.npy', y)
+# Save dataframe
+df.to_csv("age_dataset.csv", index=False)
