@@ -4,10 +4,39 @@ import cv2
 import typer
 
 # Age
-AGE_MODEL_DEFAULT = "original"
-AGE_MODEL_HELP = "Path to exported model or \"original\""
-AGE_MODEL_ORIGINAL_MODEL = "original_models/age_net.caffemodel"
-AGE_MODEL_ORIGINAL_PROTO = "original_models/age_deploy.prototxt"
+AGE_MODES = ["original", "custom"]
+AGE_MODE_DEFAULT = "original"
+AGE_MODE_HELP = "How to detect genders (original - X% accuracy, custom - X% accuracy)"
+AGE_MODE_ORIGINAL_MODEL = "original_models/age_net.caffemodel"
+AGE_MODE_ORIGINAL_PROTO = "original_models/age_deploy.prototxt"
+AGE_MODE_CUSTOM_MODEL = "custom_models/age/optimized_graph.pb"
+AGE_MODE_CUSTOM_PROTO = "custom_models/age/optimized_graph.pbtxt"
+AGE_CUSTOM_RANGES = [
+    (0, 2),
+    (3, 5),
+    (6, 8),
+    (9, 11),
+    (12, 14),
+    (15, 17),
+    (18, 20),
+    (21, 23),
+    (24, 26),
+    (27, 29),
+    (30, 32),
+    (33, 35),
+    (36, 38),
+    (39, 41),
+    (42, 44),
+    (45, 47),
+    (48, 50),
+    (51, 54),
+    (55, 59),
+    (60, 64),
+    (65, 69),
+    (70, 79),
+    (80, float('inf')),
+]
+
 
 # Face
 FACE_MODES = ["dnn", "cascade"]
@@ -20,16 +49,19 @@ FACE_CASCADE_SCALE = 1.3
 FACE_CASCADE_NEIGHBORS = 5
 
 # Gender
-GENDER_MODES = ["original"]
+GENDER_MODES = ["original", "custom"]
 GENDER_MODES_DEFAULT = "original"
-GENDER_MODES_HELP = "How to detect genders"
-GENDER_MODEL_ORIGINAL_MODEL = "original_models/gender_net.caffemodel"
-GENDER_MODEL_ORIGINAL_PROTO = "original_models/gender_deploy.prototxt"
-GENDER_LIST = ["Male", "Female"]
+GENDER_MODES_HELP = "How to detect genders (original - X% accuracy, custom - X% accuracy)"
+GENDER_MODE_ORIGINAL_MODEL = "original_models/gender_net.caffemodel"
+GENDER_MODE_ORIGINAL_PROTO = "original_models/gender_deploy.prototxt"
+GENDER_MODE_CUSTOM_MODEL = "custom_models/gender/optimized_graph.pb"
+GENDER_MODE_CUSTOM_PROTO = "custom_models/gender/optimized_graph.pbtxt"
+GENDER_LIST = ["Female", "Male"]
 
 # General settings
 BOX_PADDING = 20
 CONFIDENCE_THRESHOLD = 0.7
+GENDER_THRESHOLD = 0.5
 IMAGE_NOT_FOUND = "pics/not-found.png"
 
 ###############
@@ -39,11 +71,11 @@ IMAGE_NOT_FOUND = "pics/not-found.png"
 ###############
 
 
-def validate_age_model(age_model: str) -> str:
-    # Check if age_model path exists
-    if not Path(age_model).exists() and age_model != "original":
-        raise typer.BadParameter(f"Age model not found: {age_model}")
-    return age_model
+def validate_age_mode(age_mode: str) -> str:
+    # Check if age_mode path exists
+    if age_mode not in AGE_MODES:
+        raise typer.BadParameter(f"Invalid age mode: {age_mode}")
+    return age_mode
 
 
 def validate_face_mode(face_mode: str) -> str:
@@ -64,45 +96,37 @@ def validate_gender_mode(gender_mode: str) -> str:
 #
 ###############
 
-def get_models(age_model: str, face_mode: str, gender_mode: str) -> tuple:
+def get_models(age_mode: str, face_mode: str, gender_mode: str) -> tuple:
     """Loads models for every classifier"""
 
     # Age model
-    if age_model == "original":
+    if age_mode == "original":
         age_net = cv2.dnn.readNet(
-            AGE_MODEL_ORIGINAL_MODEL, AGE_MODEL_ORIGINAL_PROTO)
-    else:
-        age_model_path = Path(age_model)
-        # List files inside the model directory
-        age_model_files = list(age_model_path.iterdir())
-        # Check if the model directory contains a model file
-        if len(age_model_files) == 0:
-            raise typer.BadParameter(f"Age model not found: {age_model}")
-        # Get pb and pbtxt files
-        pb_file: str = [f for f in age_model_files if (
-            f.suffix == ".pb" or f.suffix == ".caffemodel")][0]
-        pbtxt_file: str = [f for f in age_model_files if (
-            f.suffix == ".pbtxt" or f.suffix == ".prototxt")][0]
-        # Load model
-        age_net = cv2.dnn.readNet(str(pbtxt_file), str(pb_file))
+            AGE_MODE_ORIGINAL_MODEL, AGE_MODE_ORIGINAL_PROTO)
+    elif age_mode == "custom":
+        age_net = cv2.dnn.readNet(
+            AGE_MODE_CUSTOM_MODEL, AGE_MODE_CUSTOM_PROTO)
 
     # Face model
-    if face_mode == "dnn": # DNN - 99.7% accuracy
+    if face_mode == "dnn":  # DNN - 99.7% accuracy
         face_net = cv2.dnn.readNet(FACE_DNN_MODEL, FACE_DNN_PROTO)
-    elif face_mode == "cascade": # Haar cascade - 78.2% accuracy
+    elif face_mode == "cascade":  # Haar cascade - 78.2% accuracy
         face_net = cv2.CascadeClassifier(FACE_CASCADE_MODEL)
 
     # Gender model
     if gender_mode == "original":
         gender_net = cv2.dnn.readNet(
-            GENDER_MODEL_ORIGINAL_MODEL, GENDER_MODEL_ORIGINAL_PROTO)
+            GENDER_MODE_ORIGINAL_MODEL, GENDER_MODE_ORIGINAL_PROTO)
+    elif gender_mode == "custom":
+        gender_net = cv2.dnn.readNet(
+            GENDER_MODE_CUSTOM_MODEL, GENDER_MODE_CUSTOM_PROTO)
 
     return age_net, face_net, gender_net
 
 
-def get_age_mean_values(age_model: str):
+def get_age_mean_values(age_mode: str):
     """Loads mean values for age model"""
-    if age_model == "original":
+    if age_mode == "original":
         return (78.4263377603, 87.7689143744, 114.895847746)
     else:
         return (0, 0, 0)
@@ -124,14 +148,13 @@ def get_gender_mean_values(gender_mode: str):
         return (0, 0, 0)
 
 
-def get_age_scale_values(age_model: str):
+def get_age_scale_values(age_mode: str):
     """Loads age scale for age model"""
-    if age_model == "original":
+    if age_mode == "original":
         return ['(0-2)', '(4-6)', '(8-12)', '(15-20)',
                 '(25-32)', '(38-43)', '(48-53)', '(60+)']
     else:
-        return ['(0-3)', '(4-7)', '(8-13)', '(14-22)',
-                '(23-35)', '(36-45)', '(46-60)', '(60+)']
+        return AGE_CUSTOM_RANGES
 
 
 def highlight_faces(net, frame, face_mode: str, cascade_scale: float, cascade_neighbors: int, conf_threshold: float = CONFIDENCE_THRESHOLD):
@@ -142,7 +165,7 @@ def highlight_faces(net, frame, face_mode: str, cascade_scale: float, cascade_ne
     frameWidth = frameOpencvDnn.shape[1]
     if face_mode == "dnn":
         blob = cv2.dnn.blobFromImage(
-            frameOpencvDnn, 1.0, (300, 300), get_face_mean_values(face_mode), True, False)
+            frameOpencvDnn, 1.0, (300, 300), get_face_mean_values(face_mode), swapRB=False)
 
         net.setInput(blob)
         detections = net.forward()
@@ -167,12 +190,12 @@ def highlight_faces(net, frame, face_mode: str, cascade_scale: float, cascade_ne
     return frameOpencvDnn, faceBoxes
 
 
-def run_detection(image_source, age_model: str, face_mode: str, gender_mode: str, cascade_scale: float, cascade_neighbors: int):
+def run_detection(image_source, age_mode: str, face_mode: str, gender_mode: str, cascade_scale: float, cascade_neighbors: int):
     """Runs detection on image source"""
 
     # Load models
     age_net, face_net, gender_net = get_models(
-        age_model, face_mode, gender_mode)
+        age_mode, face_mode, gender_mode)
 
     # Loop waiting for key
     while cv2.waitKey(1) < 0:
@@ -187,6 +210,7 @@ def run_detection(image_source, age_model: str, face_mode: str, gender_mode: str
         resultImg, faceBoxes = highlight_faces(
             face_net, frame, face_mode, cascade_scale, cascade_neighbors)
         if not faceBoxes:
+            typer.echo("#" * 20)
             cv2.putText(resultImg, "No face detected",
                         (150, 150), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
             cv2.imshow("Detecting age and gender", resultImg)
@@ -196,28 +220,35 @@ def run_detection(image_source, age_model: str, face_mode: str, gender_mode: str
         for faceBox in faceBoxes:
             face = frame[max(0, faceBox[1]-BOX_PADDING):min(faceBox[3]+BOX_PADDING, frame.shape[0]-1),
                          max(0, faceBox[0]-BOX_PADDING):min(faceBox[2]+BOX_PADDING, frame.shape[1]-1)]
-
+            if face.shape[0] == 0:
+                continue
             blob = cv2.dnn.blobFromImage(
-                face, 1.0, (227, 227), get_gender_mean_values(gender_mode), swapRB=False)
+                face, 1.0, (227, 227), get_gender_mean_values(gender_mode), swapRB=True)
+            blob /= 255
             gender_net.setInput(blob)
-            gender_preds = gender_net.forward()
-            gender = GENDER_LIST[gender_preds[0].argmax()]
-            typer.echo(f'Gender: {gender}')
+            gender_preds = gender_net.forward()[0][0]
+            gender = GENDER_LIST[1 if gender_preds > GENDER_THRESHOLD else 0]
+            typer.echo("#" * 20)
+            gender_text = "Gender: {}, confidence={:.2f}%".format(
+                gender, abs(gender_preds - 0.5) * 200)
+            typer.echo(gender_text)
 
             blob = cv2.dnn.blobFromImage(
-                face, 1.0, (227, 227), get_age_mean_values(age_model), swapRB=False)
-            if age_model != "original":
+                face, 1.0, (227, 227), get_age_mean_values(age_mode), swapRB=False)
+            if age_mode != "original":
                 blob /= 255
             age_net.setInput(blob)
             age_preds = age_net.forward()
-            age_list = get_age_scale_values(age_model)
+            age_list = get_age_scale_values(age_mode)
             age = age_list[age_preds[0].argmax()]
             confidence = age_preds.max()
-            typer.echo(f'Age: {age[1:-1]} years')
-            typer.echo("Confidence: {:.4f}%".format(confidence * 100))
-
-            cv2.putText(resultImg, f'{gender}, {age} {str(confidence * 100)[:2]}%', (
-                faceBox[0], faceBox[1]-10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2, cv2.LINE_AA)
+            age_text = "Age: {}, confidence={:.2f}%".format(
+                age, confidence*100)
+            typer.echo(age_text)
+            cv2.putText(resultImg, age_text, (faceBox[0]-50, faceBox[1]-10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2, cv2.LINE_AA)
+            cv2.putText(resultImg, gender_text, (faceBox[0]-50, faceBox[1]-40),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2, cv2.LINE_AA)
             cv2.imshow("Detecting age and gender", resultImg)
 
 
@@ -229,8 +260,8 @@ def run_detection(image_source, age_model: str, face_mode: str, gender_mode: str
 
 
 def main(
-    age_model: str = typer.Option(
-        AGE_MODEL_DEFAULT, help=AGE_MODEL_HELP, callback=validate_age_model),
+    age_mode: str = typer.Option(
+        AGE_MODE_DEFAULT, help=AGE_MODE_HELP, callback=validate_age_mode),
     face_mode: str = typer.Option(
         FACE_MODES_DEFAULT, help=FACE_MODES_HELP, callback=validate_face_mode),
     gender_mode: str = typer.Option(
@@ -248,11 +279,11 @@ def main(
         image_files = Path(image_dir).glob("**/*")
         for image in image_files:
             run_detection(cv2.VideoCapture(str(image)),
-                          age_model, face_mode, gender_mode,
+                          age_mode, face_mode, gender_mode,
                           cascade_scale, cascade_neighbors)
     else:
         video = cv2.VideoCapture(image if image else 0)
-        run_detection(video, age_model, face_mode, gender_mode,
+        run_detection(video, age_mode, face_mode, gender_mode,
                       cascade_scale, cascade_neighbors)
 
 
