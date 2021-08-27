@@ -235,7 +235,7 @@ def run_detection(image_source, age_mode: str, face_mode: str, gender_mode: str,
             typer.echo(gender_text)
 
             blob = cv2.dnn.blobFromImage(
-                face, 1.0, (227, 227), get_age_mean_values(age_mode), swapRB=False)
+                face, 1.0, (227, 227), get_age_mean_values(age_mode), swapRB=True)
             if age_mode != "original":
                 blob /= 255
             age_net.setInput(blob)
