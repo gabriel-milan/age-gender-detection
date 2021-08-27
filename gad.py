@@ -224,7 +224,8 @@ def run_detection(image_source, age_mode: str, face_mode: str, gender_mode: str,
                 continue
             blob = cv2.dnn.blobFromImage(
                 face, 1.0, (227, 227), get_gender_mean_values(gender_mode), swapRB=True)
-            blob /= 255
+            if gender_mode != "original":
+                blob /= 255
             gender_net.setInput(blob)
             gender_preds = gender_net.forward()[0][0]
             gender = GENDER_LIST[1 if gender_preds > GENDER_THRESHOLD else 0]
